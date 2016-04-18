@@ -14,6 +14,7 @@ class ServerSendRequest
 {    
     const  VISIT_TYPE_NOT_EXIST = "所指定的访问方式不存在";
     const  MODULE_NOT_LOADED = "模块未加载";
+    const  READ_DATA_TIMEOUT = "读取数据超时";
     /*
      * @property array $visit_type 访问方式
      */
@@ -42,7 +43,7 @@ class ServerSendRequest
         'host' => null,
         'port' => 80,
         'connect_timeout' => 5,  //建立链接的时间限制 ，单位 秒
-        'read_timeout' => 5     //读取数据的时间限制，单位 秒
+        'read_timeout' => 5   //读取数据的时间限制，单位 秒
     );
     
         
@@ -143,34 +144,19 @@ class ServerSendRequest
        if ($fp) {
            stream_set_blocking($fp, $this->is_async? 0: 1);
            stream_set_timeout($fp, $this->connect_info['read_timeout']);
-           $content = http_build_query($data);
            
            //发起get或post请求
-           if ($type == 'get') {
-               $url .= strpos( $url, '?') !== false ? "&".$content: "?".$content; 
-               $send_str = "".
-                   "GET {$url} HTTP/1.1\r\n".
-                   "Host: {$this->host}\r\n".
-                   "Connection: close\r\n".
-                   "\r\n";
-           } 
-           else {
-               $send_str = "".
-                   "POST {$url} HTTP/1.1\r\n".
-                   "Host: {$this->host}\r\n".
-                   "Content-Type: application/x-www-form-urlencoded\r\n".
-                   "Content-Length: " . strlen($content) . "\r\n".
-                   "Connection: close\r\n".
-                   "\r\n";
-           }
+           $send_str = $this->_buildOrginHttpRequest($url, $type, $data);
            fwrite($fp, $send_str);
            //在同步请求的前提下，获取响应内容
            if ($this->is_async == false) {
                $flag = 0;
                $header = "";
                
-               while (!feof($fp)) {
+               $info = stream_get_meta_data($fp);
+               while (!feof($fp) && !$info['timed_out']) {
                    $tmp_data = fgets( $fp );
+                   $info = stream_get_meta_data($fp);
                    
                    if ($tmp_data == "\r\n") {
                        $flag = 1; 
@@ -182,6 +168,14 @@ class ServerSendRequest
                    else {
                        $header.= $tmp_data;
                    }
+               }
+               
+               if ($info['timed_out']) {
+                   $this->error = array(
+                        'errno' => 'fsocket_error',
+                        'errmsg' => '【read_data error】:'.self::READ_DATA_TIMEOUT
+                   );
+                   return false;
                }
                $this->_dealHeaderInfo($header);
            }
@@ -219,40 +213,21 @@ class ServerSendRequest
             $this->error =  "socket_connect() failed.\nReason: ($connect) " . socket_strerror(socket_last_error($socket));
             return false;
         }
-        stream_set_blocking($socket, $this->is_async? 0: 1);
        
         //发起get或post请求
-        $content = http_build_query($data);
-        if ($type == 'get') {
-            $url .= strpos( $url, '?') !== false ? "&".$content: "?".$content;
-            $send_str = "".
-                "GET {$url} HTTP/1.1\r\n".
-                "Host: {$this->host}\r\n".
-                "Connection: close\r\n".
-                "\r\n";
-        }
-        else {
-            $send_str = "".
-                "POST {$url} HTTP/1.1\r\n".
-                "Host: {$this->host}\r\n".
-                "Content-Type: application/x-www-form-urlencoded\r\n".
-                "Content-Length: " . strlen($content) . "\r\n".
-                "Connection: close\r\n".
-                "\r\n";
-        }
+        $send_str = $this->_buildOrginHttpRequest($url, $type, $data);
         socket_write($socket, $send_str, strlen($send_str));
-        
-       
+
         if (!$this->is_async) {
             //解析响应
             $flag = 0;
             $header = '';
             while ($tmp_data = socket_read($socket,  2048)) {
-               
+                
                 if ($flag == 1) {
                     $this->response['body'] .= $tmp_data;
                     continue;
-                    }
+                }
                 
                 //处理http头信息
                 $tmp_slice = preg_split('/\r\n/', $tmp_data);
@@ -272,6 +247,13 @@ class ServerSendRequest
                }
             }
             $this->_dealHeaderInfo($header);
+        }
+        
+        if (socket_last_error($socket) > 0) {
+            $this->error = array(
+                'errno' => socket_last_error($socket),
+                'errmsg' => '【socket error】:'.socket_strerror(socket_last_error($socket))
+            );
         }
         socket_close($socket);
         return empty($this->error['errno']);
@@ -370,10 +352,10 @@ class ServerSendRequest
      */
     private function _checkSocketDependency()
     {
-        if (!extension_loaded('socket')) {
+        if (!extension_loaded('sockets')) {
             $this->error['errmsg'] = 'socket '.self::MODULE_NOT_LOADED; 
         }
-        $this->error['errmno'] = $this->error['errmsg']? "socket_error": '';
+        $this->error['errno'] = $this->error['errmsg']? "socket_error": '';
         return empty($this->error['errno']);
     }
     
@@ -403,11 +385,48 @@ class ServerSendRequest
             }
         }
     }
+    
+    /**
+     * @desc 建立原生http请求
+     * ------------------------------------------------
+     * @param string $url: 要访问的url 
+     * ------------------------------------------------
+     * @param string $type: 访问方式 get/post 
+     * ------------------------------------------------
+     * @param array $addition_header: 附加的头信息
+     * ------------------------------------------------
+     */
+    private function _buildOrginHttpRequest($url, $type, $data, $addition_header = array()) 
+    {
+        //发起get或post请求
+        $content = http_build_query($data);
+        $addition_header_str = empty($addition_header)? "": join('\r\n', $addition_header)."\r\n";
+        if ($type == 'get') {
+            $url .= strpos( $url, '?') !== false ? "&".$content: "?".$content;
+            $request_str = "".
+                "GET {$url} HTTP/1.1\r\n".
+                "Host: {$this->host}\r\n".
+                "Connection: close\r\n".
+                $addition_header_str.
+                "\r\n";
+        }
+        else {
+            $request_str = "".
+                "POST {$url} HTTP/1.1\r\n".
+                "Host: {$this->host}\r\n".
+                "Content-Type: application/x-www-form-urlencoded\r\n".
+                "Content-Length: " . strlen($content) . "\r\n".
+                "Connection: close\r\n".
+                $addition_header_str.
+                "\r\n";
+        }
+        return $request_str;
+    }
 }
 
 //test
 $request_obj = new ServerSendRequest();
 $request_obj->init(array('host'=>'zhibo.jindinghui.com.cn', 'port'=> 80, 'is_async'=> false));
-$request_obj->sendRequest('http://zhibo.jindinghui.com.cn/index.php?fid=1001', 'post', array(), 'socket');
-// print_r($request_obj->getErrorMsg());
+$request_obj->sendRequest('http://zhibo.jindinghui.com.cn/index2.php?fid=1001', 'post', array(), 'socket');
+print_r($request_obj->getErrorMsg());
 print_r( $request_obj->getResponse());
