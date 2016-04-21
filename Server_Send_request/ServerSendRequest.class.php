@@ -1,9 +1,9 @@
 <?php
 /**************************************************************
- * ·þÎñÆ÷¶Ë·¢ÆðÇëÇó¹¤¾ßÀà£¬°üº¬ÒÔÏÂÄÚÈÝ£º
- *  1.Ìá¹©Í¬²½ºÍÒì²½Á½ÖÖ·þÎñÆ÷·¢Æð·ÃÎÊµÄ·½Ê½
- *  2.Ìá¹©curl/fsocket Á½ÖÖ·½Ê½
- *  3.¶ÔÃ¿ÖÖ·ÃÎÊ·½Ê½£¬Ìá¹©±ØÐèµÄÒÀÀµºÍ²ÎÊýÉèÖÃ¼ì²â
+ * æœåŠ¡å™¨ç«¯å‘èµ·è¯·æ±‚å·¥å…·ç±»ï¼ŒåŒ…å«ä»¥ä¸‹å†…å®¹ï¼š
+ *  1.æä¾›åŒæ­¥å’Œå¼‚æ­¥ä¸¤ç§æœåŠ¡å™¨å‘èµ·è®¿é—®çš„æ–¹å¼
+ *  2.æä¾›curl/fsocket ä¸¤ç§æ–¹å¼
+ *  3.å¯¹æ¯ç§è®¿é—®æ–¹å¼ï¼Œæä¾›å¿…éœ€çš„ä¾èµ–å’Œå‚æ•°è®¾ç½®æ£€æµ‹
  * 
  **************************************************************/
 namespace XuXiaoZhou\Php;
@@ -12,11 +12,11 @@ ini_set('display_errors', false);
 
 class ServerSendRequest 
 {    
-    const  VISIT_TYPE_NOT_EXIST = "ËùÖ¸¶¨µÄ·ÃÎÊ·½Ê½²»´æÔÚ";
-    const  MODULE_NOT_LOADED = "Ä£¿éÎ´¼ÓÔØ";
-    const  READ_DATA_TIMEOUT = "¶ÁÈ¡Êý¾Ý³¬Ê±";
+    const  VISIT_TYPE_NOT_EXIST = "æ‰€æŒ‡å®šçš„è®¿é—®æ–¹å¼ä¸å­˜åœ¨";
+    const  MODULE_NOT_LOADED = "æ¨¡å—æœªåŠ è½½";
+    const  READ_DATA_TIMEOUT = "è¯»å–æ•°æ®è¶…æ—¶";
     /*
-     * @property array $visit_type ·ÃÎÊ·½Ê½
+     * @property array $visit_type è®¿é—®æ–¹å¼
      */
     private $visit_type = array(
         'async' => array(
@@ -31,24 +31,24 @@ class ServerSendRequest
     );
     
     /*
-     * @property array $is_async ÊÇ·ñÊ¹ÓÃÒì²½·ÃÎÊ
+     * @property array $is_async æ˜¯å¦ä½¿ç”¨å¼‚æ­¥è®¿é—®
      */
     private $is_async = false;
     
 
     /*
-     * @property array connect_info Á¬½ÓÐÅÏ¢ 
+     * @property array connect_info è¿žæŽ¥ä¿¡æ¯ 
      */
     private $connect_info = array(
         'host' => null,
         'port' => 80,
-        'connect_timeout' => 5,  //½¨Á¢Á´½ÓµÄÊ±¼äÏÞÖÆ £¬µ¥Î» Ãë
-        'read_timeout' => 5   //¶ÁÈ¡Êý¾ÝµÄÊ±¼äÏÞÖÆ£¬µ¥Î» Ãë
+        'connect_timeout' => 5,  //å»ºç«‹é“¾æŽ¥çš„æ—¶é—´é™åˆ¶ ï¼Œå•ä½ ç§’
+        'read_timeout' => 5   //è¯»å–æ•°æ®çš„æ—¶é—´é™åˆ¶ï¼Œå•ä½ ç§’
     );
     
         
     /*
-     * @property array $error ´íÎóÐÅÏ¢
+     * @property array $error é”™è¯¯ä¿¡æ¯
      */
     private $error = array(
         'errno' => 0,
@@ -56,7 +56,7 @@ class ServerSendRequest
     );
     
     /*
-     * @property array $response ·µ»ØµÄÊý¾Ý,°üº¬Í·²¿ºÍÏìÓ¦Ìå
+     * @property array $response è¿”å›žçš„æ•°æ®,åŒ…å«å¤´éƒ¨å’Œå“åº”ä½“
      */
     private $response = array(
         'body' => '',
@@ -65,7 +65,7 @@ class ServerSendRequest
     
     /**
      * -----------------------------------------
-     * @desc Ö´ÐÐ³õÊ¼»¯
+     * @desc æ‰§è¡Œåˆå§‹åŒ–
      * -----------------------------------------
      */
     public function init($conf) {
@@ -80,15 +80,15 @@ class ServerSendRequest
     
     /**
      * -----------------------------------------
-     * @desc ·¢ÆðÇëÇó
+     * @desc å‘èµ·è¯·æ±‚
      * ------------------------------------------------
      * @param string type: get/post 
      * ------------------------------------------------
-     * @param array data: Òª·¢ËÍµÄÊý¾Ý
+     * @param array data: è¦å‘é€çš„æ•°æ®
      * ------------------------------------------------
-     * @param string url: Òª·ÃÎÊµÄurl
+     * @param string url: è¦è®¿é—®çš„url
      * ------------------------------------------------
-     * @param string visit_type: ·ÃÎÊ·½Ê½ 
+     * @param string visit_type: è®¿é—®æ–¹å¼ 
      * ------------------------------------------------
      */
     public function sendRequest($url, $type, $data, $visit_type = 'fsocket', $options = array()) 
@@ -106,7 +106,7 @@ class ServerSendRequest
     
     /**
      * -----------------------------------------
-     * @desc »ñÈ¡ÏìÓ¦
+     * @desc èŽ·å–å“åº”
      * -----------------------------------------
      */
     public function getResponse(){
@@ -115,7 +115,7 @@ class ServerSendRequest
     
     /**
      * -----------------------------------------
-     * @desc »ñÈ¡´íÎóÐÅÏ¢
+     * @desc èŽ·å–é”™è¯¯ä¿¡æ¯
      * -----------------------------------------
      */
     public function getErrorMsg(){
@@ -123,13 +123,13 @@ class ServerSendRequest
     }
     
     /**
-     * @desc Ê¹ÓÃfsocketopen º¯Êý³õÊ¼»¯Ò»¸öÁ¬½Óµ¼ÖÂÖ¸¶¨µÄÖ÷»ú £¬²¢·¢ÆðÇëÇó
+     * @desc ä½¿ç”¨fsocketopen å‡½æ•°åˆå§‹åŒ–ä¸€ä¸ªè¿žæŽ¥å¯¼è‡´æŒ‡å®šçš„ä¸»æœº ï¼Œå¹¶å‘èµ·è¯·æ±‚
      * ------------------------------------------------
      * @param string type: get/post 
      * ------------------------------------------------
-     * @param array data: Òª·¢ËÍµÄÊý¾Ý
+     * @param array data: è¦å‘é€çš„æ•°æ®
      * ------------------------------------------------
-     * @param string url: Òª·ÃÎÊµÄurl
+     * @param string url: è¦è®¿é—®çš„url
      * ------------------------------------------------
      */
     private function _fsockSendRequest($url, $type, $data) 
@@ -145,10 +145,10 @@ class ServerSendRequest
            stream_set_blocking($fp, $this->is_async? 0: 1);
            stream_set_timeout($fp, $this->connect_info['read_timeout']);
            
-           //·¢Æðget»òpostÇëÇó
+           //å‘èµ·getæˆ–postè¯·æ±‚
            $send_str = $this->_buildOrginHttpRequest($url, $type, $data);
            fwrite($fp, $send_str);
-           //ÔÚÍ¬²½ÇëÇóµÄÇ°ÌáÏÂ£¬»ñÈ¡ÏìÓ¦ÄÚÈÝ
+           //åœ¨åŒæ­¥è¯·æ±‚çš„å‰æä¸‹ï¼ŒèŽ·å–å“åº”å†…å®¹
            if ($this->is_async == false) {
                $flag = 0;
                $header = "";
@@ -173,7 +173,7 @@ class ServerSendRequest
                if ($info['timed_out']) {
                    $this->error = array(
                         'errno' => 'fsocket_error',
-                        'errmsg' => '¡¾read_data error¡¿:'.self::READ_DATA_TIMEOUT
+                        'errmsg' => 'ã€read_data errorã€‘:'.self::READ_DATA_TIMEOUT
                    );
                    return false;
                }
@@ -187,14 +187,14 @@ class ServerSendRequest
     
     
     /**
-     * @desc Ê¹ÓÃphpÔ­Éúsocket º¯Êý³õÊ¼»¯Ò»¸öÁ¬½Óµ¼ÖÂÖ¸¶¨µÄÖ÷»ú £¬²¢·¢ÆðÇëÇó
-     *    ×¢Òâ£ºÕâÀïÖ»ÉèÖÃÁË·µ»ØµÄÊý¾ÝµÄ¶ÁÈ¡Ê±¼ä£¬Ã»ÓÐÉèÖÃÁ´½Ó³¬Ê±Ê±¼ä
+     * @desc ä½¿ç”¨phpåŽŸç”Ÿsocket å‡½æ•°åˆå§‹åŒ–ä¸€ä¸ªè¿žæŽ¥å¯¼è‡´æŒ‡å®šçš„ä¸»æœº ï¼Œå¹¶å‘èµ·è¯·æ±‚
+     *    æ³¨æ„ï¼šè¿™é‡Œåªè®¾ç½®äº†è¿”å›žçš„æ•°æ®çš„è¯»å–æ—¶é—´ï¼Œæ²¡æœ‰è®¾ç½®é“¾æŽ¥è¶…æ—¶æ—¶é—´
      * ------------------------------------------------
      * @param string type: get/post
      * ------------------------------------------------
-     * @param array data: Òª·¢ËÍµÄÊý¾Ý
+     * @param array data: è¦å‘é€çš„æ•°æ®
      * ------------------------------------------------
-     * @param string url: Òª·ÃÎÊµÄurl
+     * @param string url: è¦è®¿é—®çš„url
      * ------------------------------------------------
      */
     private function _socketSendRequet($url, $type, $data)
@@ -204,7 +204,7 @@ class ServerSendRequest
             $this->error = "socket_create() failed: reason: " . socket_strerror(socket_last_error());
             return false;
         }
-        //ÉèÖÃsocketÖÐÊý¾ÝµÄ¶ÁÈ¡Ê±¼ä
+        //è®¾ç½®socketä¸­æ•°æ®çš„è¯»å–æ—¶é—´
         socket_set_option($socket,SOL_SOCKET,SO_RCVTIMEO,array("sec"=> $this->connect_info['read_timeout'], "usec"=>0 ) );
         
         $address = gethostbyname($this->connect_info['host']);
@@ -214,12 +214,12 @@ class ServerSendRequest
             return false;
         }
        
-        //·¢Æðget»òpostÇëÇó
+        //å‘èµ·getæˆ–postè¯·æ±‚
         $send_str = $this->_buildOrginHttpRequest($url, $type, $data);
         socket_write($socket, $send_str, strlen($send_str));
 
         if (!$this->is_async) {
-            //½âÎöÏìÓ¦
+            //è§£æžå“åº”
             $flag = 0;
             $header = '';
             while ($tmp_data = socket_read($socket,  2048)) {
@@ -229,7 +229,7 @@ class ServerSendRequest
                     continue;
                 }
                 
-                //´¦ÀíhttpÍ·ÐÅÏ¢
+                //å¤„ç†httpå¤´ä¿¡æ¯
                 $tmp_slice = preg_split('/\r\n/', $tmp_data);
                 if (count($tmp_slice) > 1) {
                    
@@ -252,7 +252,7 @@ class ServerSendRequest
         if (socket_last_error($socket) > 0) {
             $this->error = array(
                 'errno' => socket_last_error($socket),
-                'errmsg' => '¡¾socket error¡¿:'.socket_strerror(socket_last_error($socket))
+                'errmsg' => 'ã€socket errorã€‘:'.socket_strerror(socket_last_error($socket))
             );
         }
         socket_close($socket);
@@ -261,15 +261,15 @@ class ServerSendRequest
     }
     
     /**
-     * @desc Ê¹ÓÃcurl ·¢ÆðÇëÇó
+     * @desc ä½¿ç”¨curl å‘èµ·è¯·æ±‚
      * ------------------------------------------------
      * @param string type: get/post
      * ------------------------------------------------
-     * @param array data: Òª·¢ËÍµÄÊý¾Ý
+     * @param array data: è¦å‘é€çš„æ•°æ®
      * ------------------------------------------------
-     * @param string url: Òª·ÃÎÊµÄurl
+     * @param string url: è¦è®¿é—®çš„url
      * ------------------------------------------------
-     * @param array $options: ¸½¼ÓµÄcurlÑ¡Ïî²ÎÊý
+     * @param array $options: é™„åŠ çš„curlé€‰é¡¹å‚æ•°
      * ------------------------------------------------
      * 
      */
@@ -310,7 +310,7 @@ class ServerSendRequest
     }
     
     /**
-     * @desc ¼ì²âËùÊ¹ÓÃµÄ·ÃÎÊ·½Ê½ÐèÒªµÄÒÀÀµ
+     * @desc æ£€æµ‹æ‰€ä½¿ç”¨çš„è®¿é—®æ–¹å¼éœ€è¦çš„ä¾èµ–
      * ------------------------------------------------
      */
     public function checkDependency($type) 
@@ -325,7 +325,7 @@ class ServerSendRequest
     }
     
     /**
-     * @desc ¼ì²âcurlÒÀÀµ
+     * @desc æ£€æµ‹curlä¾èµ–
      * ------------------------------------------------
      */
     private function _checkCurlDependency() 
@@ -338,7 +338,7 @@ class ServerSendRequest
     }
     
     /**
-     * @desc ¼ì²âFsocketÒÀÀµ
+     * @desc æ£€æµ‹Fsocketä¾èµ–
      * ------------------------------------------------
      */
     private function _checkFsocketDependency()
@@ -347,7 +347,7 @@ class ServerSendRequest
     }
     
     /**
-     * @desc ¼ì²âsocketÒÀÀµ
+     * @desc æ£€æµ‹socketä¾èµ–
      * ------------------------------------------------
      */
     private function _checkSocketDependency()
@@ -360,7 +360,7 @@ class ServerSendRequest
     }
     
     /**
-     * @desc ´¦ÀíÍ·ÐÅÏ¢
+     * @desc å¤„ç†å¤´ä¿¡æ¯
      * ------------------------------------------------
      */
     private function _dealHeaderInfo($header) 
@@ -387,25 +387,25 @@ class ServerSendRequest
     }
     
     /**
-     * @desc ½¨Á¢Ô­ÉúhttpÇëÇó
+     * @desc å»ºç«‹åŽŸç”Ÿhttpè¯·æ±‚
      * ------------------------------------------------
-     * @param string $url: Òª·ÃÎÊµÄurl 
+     * @param string $url: è¦è®¿é—®çš„url 
      * ------------------------------------------------
-     * @param string $type: ·ÃÎÊ·½Ê½ get/post 
+     * @param string $type: è®¿é—®æ–¹å¼ get/post 
      * ------------------------------------------------
-     * @param array $addition_header: ¸½¼ÓµÄÍ·ÐÅÏ¢
+     * @param array $addition_header: é™„åŠ çš„å¤´ä¿¡æ¯
      * ------------------------------------------------
      */
     private function _buildOrginHttpRequest($url, $type, $data, $addition_header = array()) 
     {
-        //·¢Æðget»òpostÇëÇó
+        //å‘èµ·getæˆ–postè¯·æ±‚
         $content = http_build_query($data);
         $addition_header_str = empty($addition_header)? "": join('\r\n', $addition_header)."\r\n";
         if ($type == 'get') {
             $url .= strpos( $url, '?') !== false ? "&".$content: "?".$content;
             $request_str = "".
                 "GET {$url} HTTP/1.1\r\n".
-                "Host: {$this->host}\r\n".
+                "Host: {$this->connect_info[host]}\r\n".
                 "Connection: close\r\n".
                 $addition_header_str.
                 "\r\n";
@@ -413,7 +413,7 @@ class ServerSendRequest
         else {
             $request_str = "".
                 "POST {$url} HTTP/1.1\r\n".
-                "Host: {$this->host}\r\n".
+                "Host: {$this->connect_info[host]}\r\n".
                 "Content-Type: application/x-www-form-urlencoded\r\n".
                 "Content-Length: " . strlen($content) . "\r\n".
                 "Connection: close\r\n".
